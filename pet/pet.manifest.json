@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "id": "shenshen",
+  "displayName": "深深",
+  "description": "一只会陪你写代码的蓝发鲸鱼少女桌宠。",
+  "unofficial": true,
+  "atlas": {
+    "path": "assets/spritesheet-v2.png",
+    "sha256": "0dd1c39f8333f73da19389b4cda3f62c5658468e93caa5401add19bca33b5f30",
+    "width": 1536,
+    "height": 2288,
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "cellHeight": 208
+  },
+  "animations": [
+    {
+      "id": "idle",
+      "row": 0,
+      "frameCount": 6,
+      "frameDurationsMs": [280, 110, 110, 140, 140, 320],
+      "loop": true
+    },
+    {
+      "id": "running-right",
+      "row": 1,
+      "frameCount": 8,
+      "frameDurationsMs": [120, 120, 120, 120, 120, 120, 120, 220],
+      "loop": true
+    },
+    {
+      "id": "running-left",
+      "row": 2,
+      "frameCount": 8,
+      "frameDurationsMs": [120, 120, 120, 120, 120, 120, 120, 220],
+      "loop": true
+    },
+    {
+      "id": "waving",
+      "row": 3,
+      "frameCount": 4,
+      "frameDurationsMs": [140, 140, 140, 280],
+      "loop": false,
+      "returnTo": "idle"
+    },
+    {
+      "id": "jumping",
+      "row": 4,
+      "frameCount": 5,
+      "frameDurationsMs": [140, 140, 140, 140, 280],
+      "loop": false,
+      "returnTo": "idle"
+    },
+    {
+      "id": "failed",
+      "row": 5,
+      "frameCount": 8,
+      "frameDurationsMs": [140, 140, 140, 140, 140, 140, 140, 240],
+      "loop": true
+    },
+    {
+      "id": "waiting",
+      "row": 6,
+      "frameCount": 6,
+      "frameDurationsMs": [150, 150, 150, 150, 150, 260],
+      "loop": true
+    },
+    {
+      "id": "running",
+      "aliases": ["active-work"],
+      "row": 7,
+      "frameCount": 6,
+      "frameDurationsMs": [120, 120, 120, 120, 120, 220],
+      "loop": true
+    },
+    {
+      "id": "review",
+      "row": 8,
+      "frameCount": 6,
+      "frameDurationsMs": [150, 150, 150, 150, 150, 280],
+      "loop": true
+    }
+  ],
+  "lookDirections": [
+    { "degrees": 0.0, "row": 9, "column": 0 },
+    { "degrees": 22.5, "row": 9, "column": 1 },
+    { "degrees": 45.0, "row": 9, "column": 2 },
+    { "degrees": 67.5, "row": 9, "column": 3 },
+    { "degrees": 90.0, "row": 9, "column": 4 },
+    { "degrees": 112.5, "row": 9, "column": 5 },
+    { "degrees": 135.0, "row": 9, "column": 6 },
+    { "degrees": 157.5, "row": 9, "column": 7 },
+    { "degrees": 180.0, "row": 10, "column": 0 },
+    { "degrees": 202.5, "row": 10, "column": 1 },
+    { "degrees": 225.0, "row": 10, "column": 2 },
+    { "degrees": 247.5, "row": 10, "column": 3 },
+    { "degrees": 270.0, "row": 10, "column": 4 },
+    { "degrees": 292.5, "row": 10, "column": 5 },
+    { "degrees": 315.0, "row": 10, "column": 6 },
+    { "degrees": 337.5, "row": 10, "column": 7 }
+  ],
+  "standalone": {
+    "defaultScale": 1.0,
+    "supportedScales": [0.75, 1.0, 1.25, 1.5],
+    "walkSpeedPixelsPerSecond": 92.0,
+    "pointerDeadzonePixels": 56.0,
+    "pointerLookRangePixels": 520.0
+  }
+}

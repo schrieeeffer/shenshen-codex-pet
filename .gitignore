@@ -1,0 +1,41 @@
+# Build outputs
+build/
+dist/
+artifacts/
+**/bin/
+**/obj/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local tools and caches
+.dotnet/
+.cache/
+.codex-log/
+*.tmp
+*.bak
+*.log
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editors and operating systems
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store

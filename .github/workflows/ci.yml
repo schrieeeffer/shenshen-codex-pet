@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate-and-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install image verification dependency
+        run: python -m pip install -r requirements.txt
+
+      - name: Rebuild and verify Codex assets
+        run: |
+          python scripts/build_layout_guides.py
+          python scripts/build_codex_package.py
+          python scripts/verify_sprite.py
+          python scripts/verify_metadata.py
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build ShenshenPet.sln --configuration Release
+
+      - name: Run core tests
+        run: dotnet run --project tests/ShenshenPet.Core.Tests --configuration Release --no-build

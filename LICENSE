@@ -1,0 +1,46 @@
+Shenshen Pet repository license
+================================
+
+1. Software code
+----------------
+
+The original software code under `src/`, `tests/`, `scripts/`, and `.github/`,
+plus repository configuration files, is licensed under the MIT License below.
+This grant does not cover character artwork, sprite sheets, visual source files,
+preview media, or third-party material.
+
+MIT License
+
+Copyright (c) 2026 Shenshen Pet contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2. Character and visual assets
+------------------------------
+
+Character artwork, sprite sheets, source images, previews, and derived visual
+assets are NOT licensed under MIT. They are available for non-commercial use
+only under the terms in `ASSET_LICENSE.md`.
+
+3. Third-party rights
+---------------------
+
+Nothing in this repository grants rights to third-party names, trademarks, or
+materials beyond the permission actually provided by their rights holders.
+See `LEGAL_NOTICE.md` for provenance and scope.

@@ -1,0 +1,69 @@
+{
+  "ok": true,
+  "atlas": "archive://generation-run/pet-runs/shenshen-v2/final/spritesheet-extended.png",
+  "encoded_bytes": 3528503,
+  "sha256": "0dd1c39f8333f73da19389b4cda3f62c5658468e93caa5401add19bca33b5f30",
+  "jump": {
+    "idle_baseline": 201,
+    "jump_baselines": [
+      202,
+      179,
+      143,
+      182,
+      202
+    ],
+    "airborne_lift_pixels": 59,
+    "landing_delta_pixels": 1
+  },
+  "look_registration": {
+    "neutral_center_x": 96.0,
+    "look_centers_x": [
+      95.0,
+      91.5,
+      89.0,
+      88.0,
+      87.5,
+      87.0,
+      91.0,
+      93.5,
+      96.0,
+      100.5,
+      102.0,
+      103.0,
+      102.5,
+      103.0,
+      101.0,
+      100.5
+    ],
+    "look_widths": [
+      122,
+      115,
+      112,
+      116,
+      115,
+      114,
+      116,
+      115,
+      112,
+      105,
+      106,
+      106,
+      103,
+      104,
+      106,
+      109
+    ],
+    "maximum_center_drift_pixels": 9.0,
+    "maximum_width_ratio": 1.1844660194174756
+  },
+  "errors": [],
+  "warnings": [
+    "090->112.5 diff is a local outlier (3449 pixels vs neighbor average 2189)",
+    "112.5->135 center shift is high (8.1px)",
+    "157.5->180 diff is a local outlier (4527 pixels vs neighbor average 1870)",
+    "247.5->270 diff is a local outlier (1928 pixels vs neighbor average 1188)",
+    "337.5->000 diff is a local outlier (4710 pixels vs neighbor average 2577)",
+    "337.5->000 center shift is high (10.1px)",
+    "337.5->000 sprite area ratio is high (1.16)"
+  ]
+}

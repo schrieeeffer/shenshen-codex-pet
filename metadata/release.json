@@ -1,0 +1,35 @@
+{
+  "name": "深深",
+  "slug": "shenshen",
+  "package_version": "0.2.0",
+  "status": "dual-mode application",
+  "manifest": "pet/pet.manifest.json",
+  "atlas": "assets/spritesheet-v2.png",
+  "codex_manifest": "pet/codex/pet.json",
+  "codex_atlas": "pet/codex/spritesheet.webp",
+  "standalone_project": "src/ShenshenPet.Windows/ShenshenPet.Windows.csproj",
+  "atlas_sha256": "0dd1c39f8333f73da19389b4cda3f62c5658468e93caa5401add19bca33b5f30",
+  "atlas_width": 1536,
+  "atlas_height": 2288,
+  "columns": 8,
+  "rows": 11,
+  "cell_width": 192,
+  "cell_height": 208,
+  "frames_per_row": [6, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8],
+  "canonical_states": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review"
+  ],
+  "license": {
+    "code": "MIT",
+    "visual_assets": "non-commercial permission; see ASSET_LICENSE.md"
+  },
+  "unofficial": true
+}
