@@ -59,8 +59,47 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
+$standalonePayload = @{
+    'assets\spritesheet-v2.png' = 'assets\spritesheet-v2.png'
+    'pet\pet.manifest.json' = 'pet\pet.manifest.json'
+    'codex\pet.json' = 'pet\codex\pet.json'
+    'codex\spritesheet.webp' = 'pet\codex\spritesheet.webp'
+}
+foreach ($entry in $standalonePayload.GetEnumerator()) {
+    $destination = Join-Path $standaloneStage $entry.Key
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repoRoot $entry.Value) -Destination $destination -Force
+}
+
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $standaloneStage
 Copy-Item -LiteralPath (Join-Path $repoRoot 'ASSET_LICENSE.md') -Destination $standaloneStage
+
+$requiredStandaloneFiles = @(
+    'ShenshenPet.exe',
+    'assets\spritesheet-v2.png',
+    'pet\pet.manifest.json',
+    'codex\pet.json',
+    'codex\spritesheet.webp',
+    'LICENSE',
+    'ASSET_LICENSE.md'
+)
+foreach ($relativePath in $requiredStandaloneFiles) {
+    $candidate = Join-Path $standaloneStage $relativePath
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        throw "standalone release is missing required file: $relativePath"
+    }
+}
+
+$selfTest = Start-Process `
+    -FilePath (Join-Path $standaloneStage 'ShenshenPet.exe') `
+    -ArgumentList '--self-test' `
+    -WorkingDirectory $standaloneStage `
+    -WindowStyle Hidden `
+    -Wait `
+    -PassThru
+if ($selfTest.ExitCode -ne 0) {
+    throw "standalone release self-test failed with exit code $($selfTest.ExitCode)"
+}
 
 $codexPetStage = Join-Path $codexStage 'shenshen'
 New-Item -ItemType Directory -Force -Path $codexPetStage | Out-Null
@@ -72,6 +111,21 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'ASSET_LICENSE.md') -Destination $co
 
 Compress-Archive -Path (Join-Path $standaloneStage '*') -DestinationPath $standaloneZip -CompressionLevel Optimal
 Compress-Archive -Path (Join-Path $codexStage '*') -DestinationPath $codexZip -CompressionLevel Optimal
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$expectedStandaloneEntries = $requiredStandaloneFiles | ForEach-Object { $_.Replace('\', '/') }
+$archive = [IO.Compression.ZipFile]::OpenRead($standaloneZip)
+try {
+    $archiveEntries = $archive.Entries.FullName | ForEach-Object { $_.Replace('\', '/') }
+    foreach ($entryName in $expectedStandaloneEntries) {
+        if ($entryName -notin $archiveEntries) {
+            throw "standalone archive is missing required entry: $entryName"
+        }
+    }
+}
+finally {
+    $archive.Dispose()
+}
 
 Remove-ExistingChild -Path $stagingRoot -Root $distRoot
 

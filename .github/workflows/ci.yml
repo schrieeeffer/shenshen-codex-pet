@@ -36,3 +36,7 @@ jobs:
 
       - name: Run core tests
         run: dotnet run --project tests/ShenshenPet.Core.Tests --configuration Release --no-build
+
+      - name: Build and smoke-test release packages
+        shell: pwsh
+        run: ./scripts/build-release.ps1

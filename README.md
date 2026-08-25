@@ -23,6 +23,8 @@
 
 从 GitHub Releases 下载 `ShenshenPet-Windows-x64.zip`，解压后双击 `ShenshenPet.exe`。
 
+请先完整解压 ZIP，不要直接在压缩包预览窗口中运行。独立版已包含 .NET 运行时，不需要另外安装 SDK；程序只允许启动一个实例。
+
 - 单击：跳跃
 - 拖动：移动桌宠
 - 右键：招手、预览状态、缩放、置顶、开机启动、安装到 Codex、退出
@@ -51,6 +53,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-codex-pet.ps1
 ```
 
 如果设置了 `CODEX_HOME`，安装器会使用该目录。
+
+### 常见问题
+
+- 关闭透明窗口会把桌宠隐藏到系统托盘；需要彻底结束时，请在右键菜单或托盘菜单中选择“退出”。
+- 如果 Windows 显示 SmartScreen 提示，这是因为当前发布包尚未使用商业代码签名证书，不代表检测到了恶意代码；可先核对 Release 中的文件来源。
+- 如果桌宠提示资源缺失，请重新完整解压发布 ZIP。无法恢复的运行错误会记录到 `%LOCALAPPDATA%\ShenshenPet\crash.log`，便于提交 Issue 时定位。
 
 ## 从源码构建
 
