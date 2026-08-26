@@ -117,7 +117,7 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ShenshenPet");
+            var directory = ShenshenDataPaths.DataRoot;
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, "crash.log");
             File.AppendAllText(path, $"[{DateTimeOffset.Now:O}]{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
@@ -135,7 +135,6 @@ public partial class App : System.Windows.Application
         var atlasPath = Path.Combine(AppContext.BaseDirectory, "assets", "spritesheet-v2.png");
         var codexManifestPath = Path.Combine(AppContext.BaseDirectory, "codex", "pet.json");
         var codexAtlasPath = Path.Combine(AppContext.BaseDirectory, "codex", "spritesheet.webp");
-
         var manifest = PetManifest.Load(manifestPath);
         EnsureNonEmptyFile(atlasPath);
         EnsureNonEmptyFile(codexManifestPath);

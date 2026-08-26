@@ -12,5 +12,6 @@
     <Content Include="..\..\pet\pet.manifest.json" Link="pet.manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\pet\codex\pet.json" Link="codex\pet.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\pet\codex\spritesheet.webp" Link="codex\spritesheet.webp" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\spritesheet-v2.png" Link="assets\spritesheet-v2.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

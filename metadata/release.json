@@ -1,7 +1,7 @@
 {
   "name": "深深",
   "slug": "shenshen",
-  "package_version": "0.3.0",
+  "package_version": "0.5.0",
   "status": "standalone application with ChatGPT/Codex pet packages",
   "manifest": "pet/pet.manifest.json",
   "atlas": "assets/spritesheet-v2.png",
@@ -9,6 +9,18 @@
   "codex_atlas": "pet/codex/spritesheet.webp",
   "web_atlas": "pet/web/spritesheet.webp",
   "standalone_project": "src/ShenshenPet.Windows/ShenshenPet.Windows.csproj",
+  "windows_downloads": {
+    "self_contained": "ShenshenPet-Windows-x64.zip",
+    "runtime_shared": "ShenshenPet-Windows-x64-runtime-shared.zip"
+  },
+  "pet_pack": "Shenshen-Default-Pet-Pack.zip",
+  "codex_bridge_events": [
+    "SessionStart",
+    "UserPromptSubmit",
+    "PermissionRequest",
+    "Stop",
+    "SessionEnd"
+  ],
   "atlas_sha256": "0dd1c39f8333f73da19389b4cda3f62c5658468e93caa5401add19bca33b5f30",
   "atlas_width": 1536,
   "atlas_height": 2288,

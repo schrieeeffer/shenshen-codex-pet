@@ -4,13 +4,11 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using ShenshenPet.Core;
-using Drawing = System.Drawing;
-using Forms = System.Windows.Forms;
 using MessageBox = System.Windows.MessageBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
@@ -19,17 +17,20 @@ namespace ShenshenPet.Windows;
 
 public partial class MainWindow : Window
 {
+    private const int MaximumCachedFrames = 12;
     private const string AutoStartValueName = "ShenshenPet";
     private const string RunRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    private readonly PetManifest _manifest;
-    private readonly AnimationPlayer _player;
+    private PetManifest _manifest;
+    private AnimationPlayer _player;
+    private BitmapSource? _atlas;
+    private string? _frameDirectory;
     private readonly PetSettings _settings;
-    private readonly BitmapSource _atlas;
     private readonly Dictionary<(int Row, int Column), BitmapSource> _frameCache = [];
     private readonly DispatcherTimer _renderTimer;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
-    private readonly Forms.NotifyIcon _trayIcon;
+    private NativeTrayIcon? _trayIcon;
+    private CodexStateWatcher? _codexStateWatcher;
 
     private TimeSpan _lastTick;
     private TimeSpan _nextWalkAt;
@@ -47,30 +48,77 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        var manifestPath = Path.Combine(AppContext.BaseDirectory, "pet", "pet.manifest.json");
-        var atlasPath = Path.Combine(AppContext.BaseDirectory, "assets", "spritesheet-v2.png");
-        _manifest = PetManifest.Load(manifestPath);
-        _player = new AnimationPlayer(_manifest);
         _settings = PetSettingsStore.Load();
-        _atlas = LoadBitmap(atlasPath);
+        NormalizeSettings();
 
+        var activePack = PetPackImporter.TryResolve(_settings.ActivePetPackId);
+        if (activePack is null)
+        {
+            _settings.ActivePetPackId = null;
+            (_manifest, _atlas, _frameDirectory) = LoadRuntime(BuiltInManifestPath, BuiltInAtlasPath, BuiltInFramesDirectory);
+        }
+        else
+        {
+            (_manifest, _atlas, _frameDirectory) = LoadRuntime(activePack.ManifestPath, activePack.AtlasPath, runtimeFramesDirectory: null);
+        }
+
+        _player = new AnimationPlayer(_manifest);
         _settings.Scale = NormalizeScale(_settings.Scale);
         ApplyScale(_settings.Scale);
+        ApplyEnergySaverVisuals();
         Topmost = _settings.AlwaysOnTop;
         TopmostMenuItem.IsChecked = Topmost;
         PauseMenuItem.IsChecked = _settings.AnimationsPaused;
+        EnergySaverMenuItem.IsChecked = _settings.EnergySaver;
         AutoStartMenuItem.IsChecked = IsAutoStartEnabled();
 
-        _trayIcon = CreateTrayIcon();
-        _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
+        _renderTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(16),
+            Interval = GetRenderInterval(),
         };
         _renderTimer.Tick += OnRenderTick;
+
+        UpdateProgressUi();
+        UpdateActivePackUi();
+        UpdateBridgeMenuState();
 
         Loaded += OnLoaded;
         Closing += OnClosing;
         Closed += OnClosed;
+    }
+
+    private static string BuiltInManifestPath => Path.Combine(AppContext.BaseDirectory, "pet", "pet.manifest.json");
+
+    private static string BuiltInAtlasPath => Path.Combine(AppContext.BaseDirectory, "assets", "spritesheet-v2.png");
+
+    private static string BuiltInFramesDirectory => Path.Combine(AppContext.BaseDirectory, "assets", "frames");
+
+    private static (PetManifest Manifest, BitmapSource? Atlas, string? FrameDirectory) LoadRuntime(
+        string manifestPath,
+        string atlasPath,
+        string? runtimeFramesDirectory)
+    {
+        var manifest = PetManifest.Load(manifestPath);
+        if (runtimeFramesDirectory is not null && HasCompleteRuntimeFrames(manifest, runtimeFramesDirectory))
+        {
+            return (manifest, null, runtimeFramesDirectory);
+        }
+
+        return (manifest, LoadBitmap(atlasPath), null);
+    }
+
+    private static bool HasCompleteRuntimeFrames(PetManifest manifest, string directory)
+    {
+        return manifest.Animations.All(animation =>
+                Enumerable.Range(0, animation.FrameCount)
+                    .All(column => File.Exists(GetRuntimeFramePath(directory, animation.Row, column))))
+            && manifest.LookDirections.All(direction =>
+                File.Exists(GetRuntimeFramePath(directory, direction.Row, direction.Column)));
+    }
+
+    private static string GetRuntimeFramePath(string directory, int row, int column)
+    {
+        return Path.Combine(directory, $"{row}-{column}.png");
     }
 
     private static BitmapSource LoadBitmap(string path)
@@ -89,25 +137,6 @@ public partial class MainWindow : Window
         return bitmap;
     }
 
-    private Forms.NotifyIcon CreateTrayIcon()
-    {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("显示深深", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
-        menu.Items.Add("安装到 Codex", null, (_, _) => Dispatcher.Invoke(InstallCodexPet));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(ExitApplication));
-
-        var trayIcon = new Forms.NotifyIcon
-        {
-            Icon = Drawing.SystemIcons.Application,
-            Text = "深深桌宠",
-            ContextMenuStrip = menu,
-            Visible = true,
-        };
-        trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowFromTray);
-        return trayIcon;
-    }
-
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (IsSavedPositionVisible())
@@ -122,11 +151,12 @@ public partial class MainWindow : Window
         }
 
         ClampToVirtualScreen();
+        _trayIcon = new NativeTrayIcon(this, ShowFromTray, InstallCodexPet, ExitApplication);
+        RefreshCodexStateWatcher();
         ScheduleNextWalk();
-        RenderFrame(force: true);
-        _lastTick = _clock.Elapsed;
-        _renderTimer.Start();
         _player.Play("waving");
+        RenderFrame(force: true);
+        UpdateRenderLoop();
     }
 
     private void OnRenderTick(object? sender, EventArgs e)
@@ -135,16 +165,33 @@ public partial class MainWindow : Window
         var elapsed = now - _lastTick;
         _lastTick = now;
 
-        if (!AnimationsReduced)
-        {
-            UpdateWalking(elapsed, now);
-            _player.Advance(elapsed);
-        }
-
+        UpdateWalking(elapsed, now);
+        _player.Advance(elapsed);
         RenderFrame();
     }
 
     private bool AnimationsReduced => _settings.AnimationsPaused || !SystemParameters.ClientAreaAnimation;
+
+    private TimeSpan GetRenderInterval()
+    {
+        // Animation frames are 110 ms or longer. The default 10 FPS cadence stays
+        // responsive while cutting idle wake-ups by more than 80% versus the old timer.
+        return TimeSpan.FromMilliseconds(_settings.EnergySaver ? 100 : 33);
+    }
+
+    private void UpdateRenderLoop()
+    {
+        _renderTimer.Interval = GetRenderInterval();
+        if (!IsVisible || AnimationsReduced)
+        {
+            _renderTimer.Stop();
+            RenderFrame(force: true);
+            return;
+        }
+
+        _lastTick = _clock.Elapsed;
+        _renderTimer.Start();
+    }
 
     private void UpdateWalking(TimeSpan elapsed, TimeSpan now)
     {
@@ -208,14 +255,34 @@ public partial class MainWindow : Window
 
         if (!_frameCache.TryGetValue(cell, out var frame))
         {
-            var rectangle = new Int32Rect(
-                cell.Column * _manifest.Atlas.CellWidth,
-                cell.Row * _manifest.Atlas.CellHeight,
-                _manifest.Atlas.CellWidth,
-                _manifest.Atlas.CellHeight);
-            var cropped = new CroppedBitmap(_atlas, rectangle);
-            cropped.Freeze();
-            frame = cropped;
+            if (_frameDirectory is not null)
+            {
+                frame = LoadBitmap(GetRuntimeFramePath(_frameDirectory, cell.Row, cell.Column));
+                if (frame.PixelWidth != _manifest.Atlas.CellWidth || frame.PixelHeight != _manifest.Atlas.CellHeight)
+                {
+                    throw new InvalidDataException("运行时帧尺寸与 Pet manifest 不一致。");
+                }
+            }
+            else
+            {
+                var rectangle = new Int32Rect(
+                    cell.Column * _manifest.Atlas.CellWidth,
+                    cell.Row * _manifest.Atlas.CellHeight,
+                    _manifest.Atlas.CellWidth,
+                    _manifest.Atlas.CellHeight);
+                var cropped = new CroppedBitmap(
+                    _atlas ?? throw new InvalidOperationException("桌宠运行时没有可用精灵表。"),
+                    rectangle);
+                cropped.Freeze();
+                frame = cropped;
+            }
+
+            if (_frameCache.Count >= MaximumCachedFrames)
+            {
+                var evicted = _frameCache.Keys.First(key => key != _renderedCell);
+                _frameCache.Remove(evicted);
+            }
+
             _frameCache[cell] = frame;
         }
 
@@ -309,6 +376,7 @@ public partial class MainWindow : Window
         Top = _dragStartWindow.Y + deltaY;
         ClampToVirtualScreen();
         _player.Play(deltaX >= 0 ? "running-right" : "running-left", restart: false);
+        RenderFrame();
         e.Handled = true;
     }
 
@@ -332,17 +400,46 @@ public partial class MainWindow : Window
             _player.Play("jumping");
         }
 
+        RenderFrame();
         e.Handled = true;
     }
 
     private static Point GetNativeCursorPoint()
     {
-        if (!GetCursorPos(out var point))
+        return GetCursorPos(out var point) ? new Point(point.X, point.Y) : default;
+    }
+
+    private void OnClaimRiceClick(object sender, RoutedEventArgs e)
+    {
+        if (!PetProgress.TryClaimDailyRice(_settings, DateOnly.FromDateTime(DateTime.Now)))
         {
-            return default;
+            MessageBox.Show("今天已经领取过白饭啦，明天再来吧。", "深深桌宠", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
 
-        return new Point(point.X, point.Y);
+        _player.Play("waving");
+        UpdateProgressUi();
+        SaveSettings();
+    }
+
+    private void OnFeedClick(object sender, RoutedEventArgs e)
+    {
+        if (!PetProgress.TryFeed(_settings))
+        {
+            MessageBox.Show("白饭不够了，可以领取今天的白饭。", "深深桌宠", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _player.Play("jumping");
+        UpdateProgressUi();
+        SaveSettings();
+    }
+
+    private void UpdateProgressUi()
+    {
+        var level = PetProgress.GetBondLevel(_settings);
+        ProgressMenuItem.Header = $"白饭 ×{_settings.Rice} · 羁绊 Lv.{level}";
+        _trayIcon?.SetTooltip($"深深桌宠 · 白饭 {_settings.Rice} · 羁绊 Lv.{level}");
     }
 
     private void OnWaveClick(object sender, RoutedEventArgs e) => _player.Play("waving");
@@ -359,8 +456,54 @@ public partial class MainWindow : Window
     private void OnPauseClick(object sender, RoutedEventArgs e)
     {
         _settings.AnimationsPaused = PauseMenuItem.IsChecked;
-        RenderFrame(force: true);
+        UpdateRenderLoop();
         SaveSettings();
+    }
+
+    private void OnEnergySaverClick(object sender, RoutedEventArgs e)
+    {
+        _settings.EnergySaver = EnergySaverMenuItem.IsChecked;
+        ApplyEnergySaverVisuals();
+        UpdateRenderLoop();
+        ScheduleNextWalk();
+        SaveSettings();
+    }
+
+    private void ApplyEnergySaverVisuals()
+    {
+        RenderOptions.SetBitmapScalingMode(
+            PetImage,
+            _settings.EnergySaver ? BitmapScalingMode.LowQuality : BitmapScalingMode.HighQuality);
+        TryApplyEnergySaverProcessProfile(_settings.EnergySaver);
+    }
+
+    private static void TryApplyEnergySaverProcessProfile(bool enabled)
+    {
+        try
+        {
+            using var process = Process.GetCurrentProcess();
+            process.PriorityClass = enabled ? ProcessPriorityClass.BelowNormal : ProcessPriorityClass.Normal;
+            var state = new ProcessPowerThrottlingState
+            {
+                Version = 1,
+                ControlMask = 1,
+                StateMask = enabled ? 1u : 0u,
+            };
+            _ = SetProcessInformation(
+                process.Handle,
+                processInformationClass: 4,
+                ref state,
+                (uint)Marshal.SizeOf<ProcessPowerThrottlingState>());
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
     }
 
     private void OnTopmostClick(object sender, RoutedEventArgs e)
@@ -412,6 +555,68 @@ public partial class MainWindow : Window
             .First();
     }
 
+    private void OnImportPetPackClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "导入深深 Pet Pack",
+            Filter = "Shenshen Pet Pack (*.zip;*.shenshenpet)|*.zip;*.shenshenpet|ZIP 文件 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var imported = PetPackImporter.Import(dialog.FileName);
+            ActivatePet(imported.ManifestPath, imported.AtlasPath, runtimeFramesDirectory: null);
+            _settings.ActivePetPackId = imported.Id;
+            UpdateActivePackUi();
+            SaveSettings();
+            MessageBox.Show(
+                $"已安全导入并切换到：{imported.DisplayName}\n\n安装目录：{imported.DirectoryPath}",
+                "Pet Pack 导入完成",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "Pet Pack 导入失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnRestoreBuiltInPetClick(object sender, RoutedEventArgs e)
+    {
+        ActivatePet(BuiltInManifestPath, BuiltInAtlasPath, BuiltInFramesDirectory);
+        _settings.ActivePetPackId = null;
+        UpdateActivePackUi();
+        SaveSettings();
+    }
+
+    private void ActivatePet(string manifestPath, string atlasPath, string? runtimeFramesDirectory)
+    {
+        (_manifest, _atlas, _frameDirectory) = LoadRuntime(manifestPath, atlasPath, runtimeFramesDirectory);
+        _player = new AnimationPlayer(_manifest, "waving");
+        _frameCache.Clear();
+        _renderedCell = null;
+        _walking = false;
+        _settings.Scale = NormalizeScale(_settings.Scale);
+        ApplyScale(_settings.Scale);
+        ClampToVirtualScreen();
+        ScheduleNextWalk();
+        RenderFrame(force: true);
+    }
+
+    private void UpdateActivePackUi()
+    {
+        ActivePackMenuItem.Header = _settings.ActivePetPackId is null
+            ? "当前角色：深深（内置）"
+            : $"当前角色：{_manifest.DisplayName}（{_settings.ActivePetPackId}）";
+    }
+
     private void OnInstallCodexClick(object sender, RoutedEventArgs e) => InstallCodexPet();
 
     private void InstallCodexPet()
@@ -431,13 +636,94 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnHideClick(object sender, RoutedEventArgs e) => Hide();
+    private void OnInstallCodexBridgeClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var source = Path.Combine(AppContext.BaseDirectory, "codex-bridge", "ShenshenPet.Bridge.exe");
+            var result = CodexHookInstaller.Install(source);
+            UpdateBridgeMenuState();
+            RefreshCodexStateWatcher();
+            var backup = result.BackupPath is null ? string.Empty : $"\n原配置备份：{result.BackupPath}";
+            MessageBox.Show(
+                $"Codex 状态桥接已写入：\n{result.HooksPath}{backup}\n\n请在 Codex CLI 输入 /hooks，检查并信任这些 Hook。桥接只保存动画状态，不保存聊天内容。",
+                "Codex 状态桥接已安装",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "Codex 状态桥接安装失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnUninstallCodexBridgeClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var backup = CodexHookInstaller.Uninstall();
+            UpdateBridgeMenuState();
+            RefreshCodexStateWatcher();
+            var backupHint = backup is null ? string.Empty : $"\n卸载前备份：{backup}";
+            MessageBox.Show($"已移除深深的 Codex Hook；其他 Hook 保持不变。{backupHint}", "Codex 状态桥接", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "Codex 状态桥接卸载失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void UpdateBridgeMenuState()
+    {
+        var installed = CodexHookInstaller.IsInstalled();
+        InstallBridgeMenuItem.IsEnabled = !installed;
+        UninstallBridgeMenuItem.IsEnabled = installed;
+    }
+
+    private void RefreshCodexStateWatcher()
+    {
+        _codexStateWatcher?.Dispose();
+        _codexStateWatcher = null;
+        if (!CodexHookInstaller.IsInstalled())
+        {
+            return;
+        }
+
+        _codexStateWatcher = new CodexStateWatcher(state =>
+            Dispatcher.BeginInvoke(new Action(() => ApplyCodexState(state)), DispatcherPriority.Background));
+    }
+
+    private void ApplyCodexState(string state)
+    {
+        if (_isExiting)
+        {
+            return;
+        }
+
+        _walking = false;
+        _player.Play(state, restart: false);
+        if (IsVisible)
+        {
+            RenderFrame(force: true);
+        }
+    }
+
+    private void OnHideClick(object sender, RoutedEventArgs e) => HideToTray();
+
+    private void HideToTray()
+    {
+        SaveSettings();
+        _renderTimer.Stop();
+        Hide();
+    }
 
     private void ShowFromTray()
     {
         Show();
         WindowState = WindowState.Normal;
         Activate();
+        RenderFrame(force: true);
+        UpdateRenderLoop();
     }
 
     private void OnExitClick(object sender, RoutedEventArgs e) => ExitApplication();
@@ -458,19 +744,20 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
-        Hide();
+        HideToTray();
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
         _renderTimer.Stop();
-        _trayIcon.Visible = false;
-        _trayIcon.Dispose();
+        _codexStateWatcher?.Dispose();
+        _trayIcon?.Dispose();
     }
 
     private void ScheduleNextWalk()
     {
-        _nextWalkAt = _clock.Elapsed + TimeSpan.FromSeconds(Random.Shared.Next(7, 15));
+        var seconds = _settings.EnergySaver ? Random.Shared.Next(14, 29) : Random.Shared.Next(7, 15);
+        _nextWalkAt = _clock.Elapsed + TimeSpan.FromSeconds(seconds);
     }
 
     private bool IsSavedPositionVisible()
@@ -494,6 +781,13 @@ public partial class MainWindow : Window
         var maxTop = SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - Height;
         Left = Math.Clamp(Left, SystemParameters.VirtualScreenLeft, maxLeft);
         Top = Math.Clamp(Top, SystemParameters.VirtualScreenTop, maxTop);
+    }
+
+    private void NormalizeSettings()
+    {
+        _settings.Rice = Math.Clamp(_settings.Rice, 0, PetProgress.MaximumRice);
+        var maximumExperience = (PetProgress.MaximumBondLevel - 1) * PetProgress.ExperiencePerLevel;
+        _settings.BondExperience = Math.Clamp(_settings.BondExperience, 0, maximumExperience);
     }
 
     private void SaveSettings()
@@ -532,10 +826,26 @@ public partial class MainWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetCursorPos(out NativePoint point);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessInformation(
+        IntPtr process,
+        int processInformationClass,
+        ref ProcessPowerThrottlingState processInformation,
+        uint processInformationSize);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct NativePoint
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessPowerThrottlingState
+    {
+        public uint Version;
+        public uint ControlMask;
+        public uint StateMask;
     }
 }

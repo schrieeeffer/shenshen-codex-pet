@@ -6,7 +6,9 @@
 
 `assets/spritesheet-v2.png`
 
-Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机位于 `src/ShenshenPet.Core/`，桌面/CLI Codex 包位于 `pet/codex/`，ChatGPT Web 上传版位于 `pet/web/`。所有运行时语义以 `pet/pet.manifest.json` 为准。
+Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机、成长、Pet Pack 与 Hook 安装逻辑位于 `src/ShenshenPet.Core/`，轻量 Hook 状态助手位于 `src/ShenshenPet.Bridge/`。桌面/CLI Codex 包位于 `pet/codex/`，ChatGPT Web 上传版位于 `pet/web/`。所有运行时语义以 `pet/pet.manifest.json` 为准。
+
+v0.5.0 默认开启 10 FPS 节能模式，隐藏/暂停时停止渲染计时器，并使用原生 Win32 托盘。发布包按需加载独立帧且最多缓存 12 张。可选 Codex Hooks 只把规范状态写入 `%LOCALAPPDATA%\ShenshenPet\codex-state.json`；导入角色包必须遵循 `PET_PACK_SPEC.md` 的路径、体积、几何和 SHA-256 安全检查。
 
 ## 固定几何合同
 
@@ -53,6 +55,8 @@ ChatGPT Web 只接受 1536×1872 的 8×9 标准状态表，因此 `pet/web/spri
 3. `dotnet build ShenshenPet.sln --configuration Release`
 4. `dotnet run --project tests/ShenshenPet.Core.Tests --configuration Release --no-build`
 5. `powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1`
+
+发布脚本会同时构建自包含版与共享运行库小体积版，并对 Hook 助手、两个 Windows 包和 Pet Pack 内容做冒烟验证。实测两种分发方式的常驻内存接近，不能把“共享运行库”宣传为显著省内存。
 
 ## 验收标准
 

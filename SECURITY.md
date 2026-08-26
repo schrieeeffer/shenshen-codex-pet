@@ -4,7 +4,11 @@
 
 仅维护最新发布版本和 `main` 分支。Windows 独立版不需要管理员权限、API Key 或网络访问，也不包含遥测。
 
-默认不启用开机启动。只有用户主动勾选后，程序才会写入当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ShenshenPet`；取消勾选会删除该值。应用设置与崩溃日志只写入 `%LOCALAPPDATA%\ShenshenPet`。
+默认不启用开机启动。只有用户主动勾选后，程序才会写入当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ShenshenPet`；取消勾选会删除该值。应用设置、成长进度、导入角色包、可选 Codex 动画状态与崩溃日志只写入 `%LOCALAPPDATA%\ShenshenPet`。
+
+Codex 状态桥接默认不安装。用户在菜单中明确安装后，程序会先备份再保留式修改 `%CODEX_HOME%\hooks.json`；卸载只移除深深标记的处理器。桥接程序会读取并丢弃 Hook stdin，只保存调用参数指定的动画状态与 UTC 时间，不解析或保存提示词、工具参数、输出或 transcript。Pet Pack 导入限制文件数/解压体积，并拒绝绝对路径、目录穿越、符号链接、错误尺寸和错误 SHA-256。
+
+节能模式默认开启，隐藏或暂停时停止渲染计时器；任何异常 CPU/内存持续增长都可按安全/性能问题报告。
 
 发布包没有商业代码签名证书，因此 SmartScreen 可能显示信誉提示。请从官方 Release 下载并使用同一 Release 的 `SHA256SUMS.txt` 核对哈希；如果杀毒软件报告具体恶意软件或哈希不一致，不要绕过警告。
 

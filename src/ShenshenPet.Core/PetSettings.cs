@@ -13,14 +13,21 @@ public sealed class PetSettings
     public bool AlwaysOnTop { get; set; } = true;
 
     public bool AnimationsPaused { get; set; }
+
+    public bool EnergySaver { get; set; } = true;
+
+    public int Rice { get; set; } = 3;
+
+    public int BondExperience { get; set; }
+
+    public string? LastDailyRiceClaim { get; set; }
+
+    public string? ActivePetPackId { get; set; }
 }
 
 public static class PetSettingsStore
 {
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ShenshenPet",
-        "settings.json");
+    public static string DefaultPath => Path.Combine(ShenshenDataPaths.DataRoot, "settings.json");
 
     public static PetSettings Load(string? path = null)
     {

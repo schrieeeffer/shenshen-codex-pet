@@ -2,17 +2,25 @@
 param(
     [string]$Configuration = 'Release',
     [string]$RuntimeIdentifier = 'win-x64',
-    [string]$DotnetPath = 'dotnet'
+    [string]$DotnetPath = 'dotnet',
+    [string]$PythonPath = 'python'
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $distRoot = Join-Path $repoRoot 'dist'
 $stagingRoot = Join-Path $distRoot 'release-staging'
-$standaloneStage = Join-Path $stagingRoot 'standalone'
+$portableStage = Join-Path $stagingRoot 'windows-portable'
+$runtimeSharedStage = Join-Path $stagingRoot 'windows-runtime-shared'
 $codexStage = Join-Path $stagingRoot 'codex'
-$standaloneZip = Join-Path $distRoot 'ShenshenPet-Windows-x64.zip'
+$bridgeStage = Join-Path $stagingRoot 'bridge'
+$petPackStage = Join-Path $stagingRoot 'pet-pack'
+$runtimeFramesStage = Join-Path $stagingRoot 'runtime-frames'
+$portableZip = Join-Path $distRoot 'ShenshenPet-Windows-x64.zip'
+$runtimeSharedZip = Join-Path $distRoot 'ShenshenPet-Windows-x64-runtime-shared.zip'
+$legacyLowMemoryZip = Join-Path $distRoot 'ShenshenPet-Windows-x64-low-memory.zip'
 $codexZip = Join-Path $distRoot 'Shenshen-Codex-Pet.zip'
+$petPackZip = Join-Path $distRoot 'Shenshen-Default-Pet-Pack.zip'
 $webSource = Join-Path $repoRoot 'pet\web\spritesheet.webp'
 $webAsset = Join-Path $distRoot 'Shenshen-ChatGPT-Web-Pet.webp'
 $checksumFile = Join-Path $distRoot 'SHA256SUMS.txt'
@@ -42,78 +50,191 @@ function Remove-ExistingChild {
     }
 }
 
+function Copy-ApplicationPayload {
+    param([Parameter(Mandatory)] [string]$Stage)
+
+    $payload = @{
+        'assets\spritesheet-v2.png' = 'assets\spritesheet-v2.png'
+        'pet\pet.manifest.json' = 'pet\pet.manifest.json'
+        'codex\pet.json' = 'pet\codex\pet.json'
+        'codex\spritesheet.webp' = 'pet\codex\spritesheet.webp'
+        'codex-bridge\ShenshenPet.Bridge.exe' = 'dist\release-staging\bridge\ShenshenPet.Bridge.exe'
+        'codex-bridge\ShenshenPet.Bridge.exe.config' = 'dist\release-staging\bridge\ShenshenPet.Bridge.exe.config'
+    }
+    foreach ($entry in $payload.GetEnumerator()) {
+        $destination = Join-Path $Stage $entry.Key
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item -LiteralPath (Join-Path $repoRoot $entry.Value) -Destination $destination -Force
+    }
+
+    foreach ($fileName in @(
+        'LICENSE',
+        'ASSET_LICENSE.md',
+        'LEGAL_NOTICE.md',
+        'AI_PROVENANCE.md',
+        'SECURITY.md',
+        'PET_PACK_SPEC.md',
+        'README.md'
+    )) {
+        Copy-Item -LiteralPath (Join-Path $repoRoot $fileName) -Destination $Stage
+    }
+
+    Copy-Item -LiteralPath $runtimeFramesStage -Destination (Join-Path $Stage 'assets\frames') -Recurse
+}
+
+function Assert-RequiredFiles {
+    param(
+        [Parameter(Mandatory)] [string]$Stage,
+        [Parameter(Mandatory)] [string[]]$RelativePaths,
+        [Parameter(Mandatory)] [string]$Label
+    )
+
+    foreach ($relativePath in $RelativePaths) {
+        $candidate = Join-Path $Stage $relativePath
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            throw "$Label is missing required file: $relativePath"
+        }
+    }
+}
+
+function Assert-ZipEntries {
+    param(
+        [Parameter(Mandatory)] [string]$ZipPath,
+        [Parameter(Mandatory)] [string[]]$RelativePaths
+    )
+
+    $archive = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $archiveEntries = $archive.Entries.FullName | ForEach-Object { $_.Replace('\', '/') }
+        foreach ($relativePath in $RelativePaths) {
+            $entryName = $relativePath.Replace('\', '/')
+            if ($entryName -notin $archiveEntries) {
+                throw "archive is missing required entry: $entryName"
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
+
+if (Test-Path -LiteralPath $DotnetPath -PathType Leaf) {
+    $dotnetExecutable = (Resolve-Path -LiteralPath $DotnetPath).Path
+}
+else {
+    $dotnetExecutable = (Get-Command $DotnetPath -ErrorAction Stop).Source
+}
+
 New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
 Remove-ExistingChild -Path $stagingRoot -Root $distRoot
-Remove-ExistingChild -Path $standaloneZip -Root $distRoot
-Remove-ExistingChild -Path $codexZip -Root $distRoot
-Remove-ExistingChild -Path $webAsset -Root $distRoot
-Remove-ExistingChild -Path $checksumFile -Root $distRoot
-New-Item -ItemType Directory -Force -Path $standaloneStage,$codexStage | Out-Null
+foreach ($asset in @($portableZip, $runtimeSharedZip, $legacyLowMemoryZip, $codexZip, $petPackZip, $webAsset, $checksumFile)) {
+    Remove-ExistingChild -Path $asset -Root $distRoot
+}
+New-Item -ItemType Directory -Force -Path $portableStage,$runtimeSharedStage,$codexStage,$bridgeStage,$petPackStage | Out-Null
+
+& $PythonPath (Join-Path $repoRoot 'scripts\build_runtime_frames.py') --output $runtimeFramesStage
+if ($LASTEXITCODE -ne 0) {
+    throw "runtime frame build failed with exit code $LASTEXITCODE"
+}
 
 $windowsProject = Join-Path $repoRoot 'src\ShenshenPet.Windows\ShenshenPet.Windows.csproj'
-# The outer ZIP handles download compression. Keeping the .NET bundle itself
-# uncompressed avoids a substantial private-memory penalty at runtime.
-& $DotnetPath publish $windowsProject `
+$bridgeProject = Join-Path $repoRoot 'src\ShenshenPet.Bridge\ShenshenPet.Bridge.csproj'
+
+# The Hook helper targets the Windows-inbox .NET Framework and is only 8 KiB.
+# It runs asynchronously, drains stdin, and never persists prompt/transcript data.
+& $dotnetExecutable publish $bridgeProject `
+    --configuration $Configuration `
+    --output $bridgeStage `
+    -p:DebugType=None `
+    -p:DebugSymbols=false
+if ($LASTEXITCODE -ne 0) {
+    throw "Codex bridge publish failed with exit code $LASTEXITCODE"
+}
+& (Join-Path $bridgeStage 'ShenshenPet.Bridge.exe') --self-test
+if ($LASTEXITCODE -ne 0) {
+    throw "Codex bridge self-test failed with exit code $LASTEXITCODE"
+}
+
+# Keep the compatibility download self-contained and uncompressed internally.
+# The outer ZIP handles download compression; avoiding bundle compression prevents
+# the runtime from keeping extracted assemblies in additional private memory.
+& $dotnetExecutable publish $windowsProject `
     --configuration $Configuration `
     --runtime $RuntimeIdentifier `
     --self-contained true `
-    --output $standaloneStage `
+    --output $portableStage `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:EnableCompressionInSingleFile=false `
     -p:DebugType=None
 if ($LASTEXITCODE -ne 0) {
-    throw "dotnet publish failed with exit code $LASTEXITCODE"
+    throw "self-contained publish failed with exit code $LASTEXITCODE"
 }
 
-$standalonePayload = @{
-    'assets\spritesheet-v2.png' = 'assets\spritesheet-v2.png'
-    'pet\pet.manifest.json' = 'pet\pet.manifest.json'
-    'codex\pet.json' = 'pet\codex\pet.json'
-    'codex\spritesheet.webp' = 'pet\codex\spritesheet.webp'
-}
-foreach ($entry in $standalonePayload.GetEnumerator()) {
-    $destination = Join-Path $standaloneStage $entry.Key
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
-    Copy-Item -LiteralPath (Join-Path $repoRoot $entry.Value) -Destination $destination -Force
+# This smaller download reuses the installed .NET Desktop Runtime. Runtime-sharing
+# reduces download/disk size; measured steady-state memory is similar to portable.
+& $dotnetExecutable publish $windowsProject `
+    --configuration $Configuration `
+    --runtime $RuntimeIdentifier `
+    --self-contained false `
+    --output $runtimeSharedStage `
+    -p:PublishSingleFile=false `
+    -p:DebugType=None
+if ($LASTEXITCODE -ne 0) {
+    throw "runtime-shared publish failed with exit code $LASTEXITCODE"
 }
 
-Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $standaloneStage
-Copy-Item -LiteralPath (Join-Path $repoRoot 'ASSET_LICENSE.md') -Destination $standaloneStage
-Copy-Item -LiteralPath (Join-Path $repoRoot 'LEGAL_NOTICE.md') -Destination $standaloneStage
-Copy-Item -LiteralPath (Join-Path $repoRoot 'AI_PROVENANCE.md') -Destination $standaloneStage
-Copy-Item -LiteralPath (Join-Path $repoRoot 'SECURITY.md') -Destination $standaloneStage
-Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination $standaloneStage
+Copy-ApplicationPayload -Stage $portableStage
+Copy-ApplicationPayload -Stage $runtimeSharedStage
 
-$requiredStandaloneFiles = @(
+$commonRequiredFiles = @(
     'ShenshenPet.exe',
     'assets\spritesheet-v2.png',
+    'assets\frames\0-0.png',
+    'assets\frames\10-7.png',
     'pet\pet.manifest.json',
     'codex\pet.json',
     'codex\spritesheet.webp',
+    'codex-bridge\ShenshenPet.Bridge.exe',
+    'codex-bridge\ShenshenPet.Bridge.exe.config',
     'LICENSE',
     'ASSET_LICENSE.md',
     'LEGAL_NOTICE.md',
     'AI_PROVENANCE.md',
     'SECURITY.md',
+    'PET_PACK_SPEC.md',
     'README.md'
 )
-foreach ($relativePath in $requiredStandaloneFiles) {
-    $candidate = Join-Path $standaloneStage $relativePath
-    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
-        throw "standalone release is missing required file: $relativePath"
-    }
-}
+Assert-RequiredFiles -Stage $portableStage -RelativePaths $commonRequiredFiles -Label 'self-contained release'
+$runtimeSharedRequiredFiles = $commonRequiredFiles + @(
+    'ShenshenPet.dll',
+    'ShenshenPet.Core.dll',
+    'ShenshenPet.deps.json',
+    'ShenshenPet.runtimeconfig.json'
+)
+Assert-RequiredFiles -Stage $runtimeSharedStage -RelativePaths $runtimeSharedRequiredFiles -Label 'runtime-shared release'
 
 $selfTest = Start-Process `
-    -FilePath (Join-Path $standaloneStage 'ShenshenPet.exe') `
+    -FilePath (Join-Path $portableStage 'ShenshenPet.exe') `
     -ArgumentList '--self-test' `
-    -WorkingDirectory $standaloneStage `
+    -WorkingDirectory $portableStage `
     -WindowStyle Hidden `
     -Wait `
     -PassThru
 if ($selfTest.ExitCode -ne 0) {
-    throw "standalone release self-test failed with exit code $($selfTest.ExitCode)"
+    throw "self-contained release self-test failed with exit code $($selfTest.ExitCode)"
+}
+
+$runtimeSharedDll = Join-Path $runtimeSharedStage 'ShenshenPet.dll'
+$runtimeSharedSelfTest = Start-Process `
+    -FilePath $dotnetExecutable `
+    -ArgumentList @("`"$runtimeSharedDll`"", '--self-test') `
+    -WorkingDirectory $runtimeSharedStage `
+    -WindowStyle Hidden `
+    -Wait `
+    -PassThru
+if ($runtimeSharedSelfTest.ExitCode -ne 0) {
+    throw "runtime-shared release self-test failed with exit code $($runtimeSharedSelfTest.ExitCode)"
 }
 
 $codexPetStage = Join-Path $codexStage 'shenshen'
@@ -141,8 +262,17 @@ foreach ($fileName in @('pet.json', 'spritesheet.webp')) {
 }
 Remove-ExistingChild -Path $installerTestHome -Root $stagingRoot
 
-Compress-Archive -Path (Join-Path $standaloneStage '*') -DestinationPath $standaloneZip -CompressionLevel Optimal
+Copy-Item -LiteralPath (Join-Path $repoRoot 'pet\pet.manifest.json') -Destination $petPackStage
+New-Item -ItemType Directory -Force -Path (Join-Path $petPackStage 'assets') | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot 'assets\spritesheet-v2.png') -Destination (Join-Path $petPackStage 'assets')
+foreach ($fileName in @('ASSET_LICENSE.md', 'LEGAL_NOTICE.md', 'AI_PROVENANCE.md', 'PET_PACK_SPEC.md')) {
+    Copy-Item -LiteralPath (Join-Path $repoRoot $fileName) -Destination $petPackStage
+}
+
+Compress-Archive -Path (Join-Path $portableStage '*') -DestinationPath $portableZip -CompressionLevel Optimal
+Compress-Archive -Path (Join-Path $runtimeSharedStage '*') -DestinationPath $runtimeSharedZip -CompressionLevel Optimal
 Compress-Archive -Path (Join-Path $codexStage '*') -DestinationPath $codexZip -CompressionLevel Optimal
+Compress-Archive -Path (Join-Path $petPackStage '*') -DestinationPath $petPackZip -CompressionLevel Optimal
 
 if (-not (Test-Path -LiteralPath $webSource -PathType Leaf)) {
     throw 'web pet asset is missing; run python scripts/build_codex_package.py first'
@@ -153,21 +283,11 @@ if ((Get-Item -LiteralPath $webAsset).Length -gt 20MB) {
 }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$expectedStandaloneEntries = $requiredStandaloneFiles | ForEach-Object { $_.Replace('\', '/') }
-$archive = [IO.Compression.ZipFile]::OpenRead($standaloneZip)
-try {
-    $archiveEntries = $archive.Entries.FullName | ForEach-Object { $_.Replace('\', '/') }
-    foreach ($entryName in $expectedStandaloneEntries) {
-        if ($entryName -notin $archiveEntries) {
-            throw "standalone archive is missing required entry: $entryName"
-        }
-    }
-}
-finally {
-    $archive.Dispose()
-}
+Assert-ZipEntries -ZipPath $portableZip -RelativePaths $commonRequiredFiles
+Assert-ZipEntries -ZipPath $runtimeSharedZip -RelativePaths $runtimeSharedRequiredFiles
+Assert-ZipEntries -ZipPath $petPackZip -RelativePaths @('pet.manifest.json', 'assets\spritesheet-v2.png', 'PET_PACK_SPEC.md')
 
-$releaseAssets = @($standaloneZip, $codexZip, $webAsset)
+$releaseAssets = @($portableZip, $runtimeSharedZip, $codexZip, $petPackZip, $webAsset)
 $checksumLines = foreach ($asset in $releaseAssets) {
     $hash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $(Split-Path -Leaf $asset)"
@@ -176,7 +296,6 @@ $checksumLines = foreach ($asset in $releaseAssets) {
 
 Remove-ExistingChild -Path $stagingRoot -Root $distRoot
 
-Write-Host "built: $standaloneZip"
-Write-Host "built: $codexZip"
-Write-Host "built: $webAsset"
-Write-Host "built: $checksumFile"
+foreach ($asset in @($portableZip, $runtimeSharedZip, $codexZip, $petPackZip, $webAsset, $checksumFile)) {
+    Write-Host "built: $asset"
+}

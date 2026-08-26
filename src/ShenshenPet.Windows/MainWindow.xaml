@@ -17,6 +17,10 @@
         PreviewMouseLeftButtonUp="OnPetMouseUp">
     <Window.ContextMenu>
         <ContextMenu>
+            <MenuItem x:Name="ProgressMenuItem" Header="白饭 ×3 · 羁绊 Lv.1" IsEnabled="False" />
+            <MenuItem Header="领取今日白饭（+3）" Click="OnClaimRiceClick" />
+            <MenuItem Header="喂深深一碗白饭" Click="OnFeedClick" />
+            <Separator />
             <MenuItem Header="招手" Click="OnWaveClick" />
             <MenuItem Header="状态预览">
                 <MenuItem Header="待机" Tag="idle" Click="OnPreviewStateClick" />
@@ -27,6 +31,7 @@
             </MenuItem>
             <Separator />
             <MenuItem x:Name="PauseMenuItem" Header="暂停动画" IsCheckable="True" Click="OnPauseClick" />
+            <MenuItem x:Name="EnergySaverMenuItem" Header="节能模式（推荐）" IsCheckable="True" Click="OnEnergySaverClick" />
             <MenuItem x:Name="TopmostMenuItem" Header="始终置顶" IsCheckable="True" Click="OnTopmostClick" />
             <MenuItem x:Name="AutoStartMenuItem" Header="开机启动" IsCheckable="True" Click="OnAutoStartClick" />
             <MenuItem Header="大小">
@@ -36,7 +41,13 @@
                 <MenuItem Header="150%" Tag="1.5" Click="OnScaleClick" />
             </MenuItem>
             <Separator />
+            <MenuItem x:Name="ActivePackMenuItem" Header="当前角色：深深（内置）" IsEnabled="False" />
+            <MenuItem Header="导入 Pet Pack…" Click="OnImportPetPackClick" />
+            <MenuItem Header="恢复内置深深" Click="OnRestoreBuiltInPetClick" />
+            <Separator />
             <MenuItem Header="安装到 Codex" Click="OnInstallCodexClick" />
+            <MenuItem x:Name="InstallBridgeMenuItem" Header="安装 Codex 状态桥接" Click="OnInstallCodexBridgeClick" />
+            <MenuItem x:Name="UninstallBridgeMenuItem" Header="卸载 Codex 状态桥接" Click="OnUninstallCodexBridgeClick" />
             <MenuItem Header="隐藏到托盘" Click="OnHideClick" />
             <MenuItem Header="退出" Click="OnExitClick" />
         </ContextMenu>

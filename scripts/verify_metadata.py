@@ -58,6 +58,29 @@ def validate_release_contract(errors: list[str]) -> str:
     ):
         errors.append("release metadata has the wrong ChatGPT web geometry")
 
+    expected_windows_downloads = {
+        "self_contained": "ShenshenPet-Windows-x64.zip",
+        "runtime_shared": "ShenshenPet-Windows-x64-runtime-shared.zip",
+    }
+    if release.get("windows_downloads") != expected_windows_downloads:
+        errors.append("release metadata has the wrong Windows download contract")
+
+    expected_bridge_events = [
+        "SessionStart",
+        "UserPromptSubmit",
+        "PermissionRequest",
+        "Stop",
+        "SessionEnd",
+    ]
+    if release.get("codex_bridge_events") != expected_bridge_events:
+        errors.append("release metadata has the wrong Codex Hook event contract")
+
+    if release.get("pet_pack") != "Shenshen-Default-Pet-Pack.zip":
+        errors.append("release metadata has the wrong default Pet Pack name")
+
+    if not (ROOT / "PET_PACK_SPEC.md").is_file():
+        errors.append("missing PET_PACK_SPEC.md")
+
     notes_path = ROOT / "docs" / "releases" / f"v{version}.md"
     if not notes_path.is_file():
         errors.append(f"missing release notes: {notes_path.relative_to(ROOT)}")
