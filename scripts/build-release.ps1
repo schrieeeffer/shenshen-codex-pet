@@ -118,6 +118,82 @@ function Assert-ZipEntries {
     }
 }
 
+if (-not ('ReleasePrivacyScanner' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Text;
+
+public static class ReleasePrivacyScanner
+{
+    public static bool ContainsText(string path, string value)
+    {
+        byte[] data = File.ReadAllBytes(path);
+        return Contains(data, Encoding.UTF8.GetBytes(value))
+            || Contains(data, Encoding.Unicode.GetBytes(value));
+    }
+
+    private static bool Contains(byte[] data, byte[] needle)
+    {
+        if (needle.Length == 0 || data.Length < needle.Length)
+        {
+            return false;
+        }
+
+        int[] prefix = new int[needle.Length];
+        for (int i = 1, matched = 0; i < needle.Length;)
+        {
+            if (needle[i] == needle[matched])
+            {
+                prefix[i++] = ++matched;
+            }
+            else if (matched > 0)
+            {
+                matched = prefix[matched - 1];
+            }
+            else
+            {
+                prefix[i++] = 0;
+            }
+        }
+
+        for (int i = 0, matched = 0; i < data.Length; i++)
+        {
+            while (matched > 0 && data[i] != needle[matched])
+            {
+                matched = prefix[matched - 1];
+            }
+
+            if (data[i] == needle[matched] && ++matched == needle.Length)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+'@
+}
+
+function Assert-NoPrivateBuildPaths {
+    param(
+        [Parameter(Mandatory)] [string]$Stage,
+        [Parameter(Mandatory)] [string[]]$PrivatePaths,
+        [Parameter(Mandatory)] [string]$Label
+    )
+
+    $stagePrefix = [IO.Path]::GetFullPath($Stage).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    foreach ($file in Get-ChildItem -LiteralPath $Stage -Recurse -File) {
+        foreach ($privatePath in $PrivatePaths) {
+            if ([ReleasePrivacyScanner]::ContainsText($file.FullName, $privatePath)) {
+                $relativePath = $file.FullName.Substring($stagePrefix.Length)
+                throw "$Label contains a machine-specific build path in: $relativePath"
+            }
+        }
+    }
+}
+
 if (Test-Path -LiteralPath $DotnetPath -PathType Leaf) {
     $dotnetExecutable = (Resolve-Path -LiteralPath $DotnetPath).Path
 }
@@ -186,6 +262,12 @@ if ($LASTEXITCODE -ne 0) {
 
 Copy-ApplicationPayload -Stage $portableStage
 Copy-ApplicationPayload -Stage $runtimeSharedStage
+
+$privateBuildPaths = @($repoRoot, $env:USERPROFILE, $env:LOCALAPPDATA, $env:TEMP) |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    Select-Object -Unique
+Assert-NoPrivateBuildPaths -Stage $portableStage -PrivatePaths $privateBuildPaths -Label 'self-contained release'
+Assert-NoPrivateBuildPaths -Stage $runtimeSharedStage -PrivatePaths $privateBuildPaths -Label 'runtime-shared release'
 
 $commonRequiredFiles = @(
     'ShenshenPet.exe',

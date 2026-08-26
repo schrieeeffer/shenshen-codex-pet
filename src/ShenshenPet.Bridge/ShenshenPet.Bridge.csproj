@@ -8,6 +8,9 @@
     <AssemblyName>ShenshenPet.Bridge</AssemblyName>
     <Version>0.5.0</Version>
     <LangVersion>latest</LangVersion>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
