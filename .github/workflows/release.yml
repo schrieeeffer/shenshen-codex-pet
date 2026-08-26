@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   release:
+    # A forced tag correction updates GitHub's generated source archives but must
+    # not recreate or overwrite an already-published Release.
+    if: ${{ github.event.forced == false }}
     runs-on: windows-latest
 
     steps:
