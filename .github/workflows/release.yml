@@ -41,12 +41,23 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: shenshen-pet-release
-          path: dist/*.zip
+          path: dist/*
+          if-no-files-found: error
 
       - name: Create GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $releaseFiles = Get-ChildItem -LiteralPath dist -Filter '*.zip'
-          gh release create $env:GITHUB_REF_NAME $releaseFiles.FullName --generate-notes --title $env:GITHUB_REF_NAME
+          $releaseFiles = Get-ChildItem -LiteralPath dist -File
+          $notesFile = Join-Path 'docs/releases' "$env:GITHUB_REF_NAME.md"
+          $arguments = @('release', 'create', $env:GITHUB_REF_NAME)
+          $arguments += $releaseFiles.FullName
+          $arguments += @('--title', $env:GITHUB_REF_NAME)
+          if (Test-Path -LiteralPath $notesFile) {
+            $arguments += @('--notes-file', $notesFile)
+          }
+          else {
+            $arguments += '--generate-notes'
+          }
+          & gh @arguments

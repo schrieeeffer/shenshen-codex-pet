@@ -2,7 +2,11 @@
 
 ## 支持范围
 
-仅维护最新发布版本和 `main` 分支。此桌宠不需要管理员权限、API Key 或网络访问。
+仅维护最新发布版本和 `main` 分支。Windows 独立版不需要管理员权限、API Key 或网络访问，也不包含遥测。
+
+默认不启用开机启动。只有用户主动勾选后，程序才会写入当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ShenshenPet`；取消勾选会删除该值。应用设置与崩溃日志只写入 `%LOCALAPPDATA%\ShenshenPet`。
+
+发布包没有商业代码签名证书，因此 SmartScreen 可能显示信誉提示。请从官方 Release 下载并使用同一 Release 的 `SHA256SUMS.txt` 核对哈希；如果杀毒软件报告具体恶意软件或哈希不一致，不要绕过警告。
 
 ## 报告问题
 

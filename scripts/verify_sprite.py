@@ -14,7 +14,9 @@ ATLAS = ROOT / "assets" / "spritesheet-v2.png"
 MANIFEST = ROOT / "pet" / "pet.manifest.json"
 CODEX_MANIFEST = ROOT / "pet" / "codex" / "pet.json"
 CODEX_ATLAS = ROOT / "pet" / "codex" / "spritesheet.webp"
+WEB_ATLAS = ROOT / "pet" / "web" / "spritesheet.webp"
 EXPECTED_SIZE = (1536, 2288)
+EXPECTED_WEB_SIZE = (1536, 1872)
 CELL_SIZE = (192, 208)
 FRAMES_PER_ROW = (6, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8)
 EXPECTED_SHA256 = "0dd1c39f8333f73da19389b4cda3f62c5658468e93caa5401add19bca33b5f30"
@@ -45,10 +47,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def validate_occupancy(image: Image.Image, label: str) -> list[str]:
+def validate_occupancy(
+    image: Image.Image,
+    label: str,
+    frames_per_row: tuple[int, ...] = FRAMES_PER_ROW,
+) -> list[str]:
     errors: list[str] = []
     cell_width, cell_height = CELL_SIZE
-    for row, used_frames in enumerate(FRAMES_PER_ROW):
+    for row, used_frames in enumerate(frames_per_row):
         for column in range(8):
             left = column * cell_width
             top = row * cell_height
@@ -133,6 +139,26 @@ def main() -> int:
     else:
         errors.append("missing Codex atlas: pet/codex/spritesheet.webp")
 
+    if WEB_ATLAS.exists():
+        with Image.open(WEB_ATLAS) as opened:
+            if opened.format != "WEBP":
+                errors.append(f"wrong web format: {opened.format}, expected WEBP")
+            web_image = opened.convert("RGBA")
+            web_image.load()
+        if web_image.size != EXPECTED_WEB_SIZE:
+            errors.append(f"wrong web atlas size: {web_image.size}")
+        else:
+            source_web = image.crop((0, 0, EXPECTED_WEB_SIZE[0], EXPECTED_WEB_SIZE[1]))
+            if web_image.tobytes() != source_web.tobytes():
+                errors.append("web WebP pixels differ from the first nine source rows")
+        if WEB_ATLAS.stat().st_size > 20 * 1024 * 1024:
+            errors.append("web WebP exceeds the 20 MiB upload limit")
+        if web_image.getchannel("A").getextrema()[0] == 255:
+            errors.append("web WebP does not contain transparent pixels")
+        errors.extend(validate_occupancy(web_image, "web WebP", FRAMES_PER_ROW[:9]))
+    else:
+        errors.append("missing web atlas: pet/web/spritesheet.webp")
+
     print(f"file: {ATLAS}")
     print(f"size: {image.width}x{image.height}")
     print(f"sha256: {digest}")
@@ -148,7 +174,7 @@ def main() -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    print("OK: source atlas, shared manifest, and Codex package passed")
+    print("OK: source atlas, shared manifest, Codex package, and web upload passed")
     return 0
 
 

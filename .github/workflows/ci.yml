@@ -27,6 +27,9 @@ jobs:
           python scripts/verify_sprite.py
           python scripts/verify_metadata.py
 
+      - name: Confirm packaged pet assets are current
+        run: git diff --exit-code -- pet/codex/spritesheet.webp pet/web/spritesheet.webp
+
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'

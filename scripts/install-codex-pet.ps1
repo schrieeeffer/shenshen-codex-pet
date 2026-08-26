@@ -17,7 +17,7 @@ function Resolve-PackageDirectory {
         return (Resolve-Path -LiteralPath $releasePackage).Path
     }
 
-    throw '找不到 Codex 宠物包。请从仓库 scripts 目录运行，或保持发布压缩包目录结构不变。'
+    throw 'Codex pet package not found. Run from the repository scripts directory or keep the release package structure intact.'
 }
 
 if ([string]::IsNullOrWhiteSpace($CodexHome)) {
@@ -38,5 +38,5 @@ New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $packageDirectory 'pet.json') -Destination $targetDirectory -Force
 Copy-Item -LiteralPath (Join-Path $packageDirectory 'spritesheet.webp') -Destination $targetDirectory -Force
 
-Write-Host "已安装深深 Codex 桌宠：$targetDirectory"
-Write-Host '请在 ChatGPT/Codex 桌面端打开 设置 > Pets，选择 Refresh 后启用“深深”，再输入 /pet 唤醒。'
+Write-Host "Installed Shenshen Codex pet: $targetDirectory"
+Write-Host 'In ChatGPT/Codex desktop, open Settings > Pets, select Refresh, choose Shenshen, then enter /pet.'

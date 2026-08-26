@@ -16,3 +16,5 @@ python scripts\verify_metadata.py
 dotnet build ShenshenPet.sln --configuration Release
 dotnet run --project tests\ShenshenPet.Core.Tests --configuration Release
 ```
+
+如果改动最终 atlas，还必须先运行 `python scripts\build_codex_package.py`，并确认 `pet/codex/spritesheet.webp` 与 `pet/web/spritesheet.webp` 的逐像素验证均通过。新增或改编视觉素材需要保留来源、修改说明和 CC BY-NC-SA 4.0 的相同方式共享条件。

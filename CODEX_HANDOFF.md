@@ -6,7 +6,7 @@
 
 `assets/spritesheet-v2.png`
 
-Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机位于 `src/ShenshenPet.Core/`，Codex 包位于 `pet/codex/`。所有运行时语义以 `pet/pet.manifest.json` 为准。
+Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机位于 `src/ShenshenPet.Core/`，桌面/CLI Codex 包位于 `pet/codex/`，ChatGPT Web 上传版位于 `pet/web/`。所有运行时语义以 `pet/pet.manifest.json` 为准。
 
 ## 固定几何合同
 
@@ -31,6 +31,8 @@ Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机位于 `s
 
 方向采用观看者坐标：90° 指向屏幕右边，270° 指向屏幕左边。
 
+ChatGPT Web 只接受 1536×1872 的 8×9 标准状态表，因此 `pet/web/spritesheet.webp` 必须是完整 atlas 前 9 行的逐像素无损导出，不包含观察方向两行。完整 8×11 WebP 同时供 ChatGPT/Codex 桌面端和兼容的 Codex CLI 使用。
+
 ## 建议的事件映射
 
 | DesktopPet/Codex 事件 | 动画状态 |
@@ -46,10 +48,11 @@ Windows 入口位于 `src/ShenshenPet.Windows/`，共享动画状态机位于 `s
 
 ## 构建与验证
 
-1. `python scripts/verify_sprite.py`
-2. `dotnet build ShenshenPet.sln --configuration Release`
-3. `dotnet run --project tests/ShenshenPet.Core.Tests --configuration Release --no-build`
-4. `powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1`
+1. `python scripts/build_codex_package.py`
+2. `python scripts/verify_sprite.py`
+3. `dotnet build ShenshenPet.sln --configuration Release`
+4. `dotnet run --project tests/ShenshenPet.Core.Tests --configuration Release --no-build`
+5. `powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1`
 
 ## 验收标准
 

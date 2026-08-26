@@ -19,11 +19,11 @@
 - Keep animation-state mapping data-driven; do not scatter frame coordinates through the renderer.
 - Map application events to the semantic states documented in `CODEX_HANDOFF.md`.
 - Keep the character name `深深` and an ASCII identifier such as `shenshen`.
-- Verify the atlas with `python scripts/verify_sprite.py` after copying or re-encoding it.
+- Rebuild desktop/CLI and web assets with `python scripts/build_codex_package.py`, then verify them with `python scripts/verify_sprite.py` after copying or re-encoding the atlas.
 - For application changes, run the Release build and `ShenshenPet.Core.Tests` console tests.
 
 ## Repository hygiene
 
 - Do not add generated build folders, caches, credentials, or machine-specific absolute paths to Git.
-- Preserve the artwork's non-commercial restriction in `ASSET_LICENSE.md`; the MIT grant covers code only.
+- Preserve the artwork's CC BY-NC-SA 4.0 and upstream non-commercial restrictions in `ASSET_LICENSE.md`; the MIT grant covers code only.
 - Keep this project clearly labeled as unofficial and not affiliated with OpenAI.
