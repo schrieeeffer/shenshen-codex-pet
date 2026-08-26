@@ -141,7 +141,7 @@ $windowsProject = Join-Path $repoRoot 'src\ShenshenPet.Windows\ShenshenPet.Windo
 $bridgeProject = Join-Path $repoRoot 'src\ShenshenPet.Bridge\ShenshenPet.Bridge.csproj'
 
 # The Hook helper targets the Windows-inbox .NET Framework and is only 8 KiB.
-# It runs asynchronously, drains stdin, and never persists prompt/transcript data.
+# It runs asynchronously, drains stdin, and persists only a predefined state.
 & $dotnetExecutable publish $bridgeProject `
     --configuration $Configuration `
     --output $bridgeStage `

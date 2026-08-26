@@ -35,7 +35,7 @@
 
 两个版本都不需要 .NET SDK。关闭透明窗口只会隐藏到系统托盘；要完全结束，请在右键菜单或托盘菜单中选择“退出”。`v0.5.0` 默认开启节能模式，并将隐藏/暂停时的渲染计时器完全停止。
 
-右键菜单还可以每天领取白饭、喂食提升羁绊，以及导入符合 [`PET_PACK_SPEC.md`](PET_PACK_SPEC.md) 的非商用角色包。成长进度只保存在本机；同一角色包 `id` 再次导入会安全更新，可随时恢复内置深深。
+右键菜单还可以每天领取白饭、喂食提升羁绊，以及导入符合 [`PET_PACK_SPEC.md`](PET_PACK_SPEC.md) 的非商用角色包。成长进度离线保存在应用设置中；同一角色包 `id` 再次导入会安全更新，可随时恢复内置深深。
 
 ### 2. ChatGPT/Codex 桌面端
 
@@ -86,9 +86,9 @@ Web Pets 是否可用取决于账号和工作区。Web 版只显示在支持的 
 - 本轮完成：`review`；
 - 会话结束：`idle`。
 
-该功能基于 [OpenAI Codex Hooks](https://learn.chatgpt.com/docs/hooks)，默认异步运行。它只把上述状态与 UTC 时间写入 `%LOCALAPPDATA%\ShenshenPet\codex-state.json`，不解析或保存 Hook 从 stdin 收到的提示词、工具参数、输出、聊天记录或 transcript 路径。安装前会备份 `~/.codex/hooks.json`，卸载只删除带深深标记的处理器。
+该功能基于 [OpenAI Codex Hooks](https://learn.chatgpt.com/docs/hooks)，默认异步运行，只同步预定义动画状态。安装前会备份 Hook 配置，卸载只删除带深深标记的处理器。
 
-## 安全与隐私卡
+## 安全与资源占用
 
 | 项目 | 默认行为 |
 | --- | --- |
@@ -99,11 +99,11 @@ Web Pets 是否可用取决于账号和工作区。Web 版只显示在支持的 
 | 本地文件 | 设置/成长写入 `%LOCALAPPDATA%\ShenshenPet\settings.json`；角色包写入 `packs\`；可选桥接写入 `codex-state.json`；不可恢复错误写入 `crash.log` |
 | 后台常驻 | 关闭窗口时会留在托盘；选择“退出”后进程结束 |
 | Codex 安装器 | 只复制 `pet.json` 与 `spritesheet.webp` 到 `%CODEX_HOME%\pets\shenshen` |
-| Codex 状态桥接 | 默认未安装；用户点击后保留式修改 `%CODEX_HOME%\hooks.json`，先备份，只保存动画状态，不保存聊天正文 |
+| Codex 状态桥接 | 默认未安装；用户点击后先备份配置，只同步预定义动画状态 |
 
 `v0.5.0` 把旧的 16 ms（约 60 FPS）轮询改为默认 100 ms（10 FPS），节能模式下自动散步也更少；窗口隐藏或动画暂停时计时器停止，并启用 Windows EcoQoS/较低进程优先级，在系统繁忙时主动让出 CPU。发布包不再启动时解码整张 atlas，而是按需加载当前动作帧，并只缓存最近 12 张。托盘改为原生 Win32 实现，不再加载 WinForms/System.Drawing。WPF、系统版本、缩放和已缓存动画帧仍会影响实际数值。
 
-最终自包含 Release 在 Windows 11 build 26200、16 逻辑处理器、100% 缩放下，预热 5 秒后做 30 秒可见空闲测试：约 **116.1 MiB 私有内存、185.5 MiB 工作集、0.36% 整机 CPU**；第二次同类测试为 116.7/185.9 MiB、0.26% CPU。共享运行库版约 116.4/183.7 MiB、0.28% CPU，说明它主要节省下载/磁盘而不是 RAM。相较 v0.3.0 的约 143/223 MiB，自包含版私有内存下降约 19%，工作集下降约 17%。通过真实右键菜单隐藏到托盘并稳定 5 秒后，20 秒测试约为 105.5/170.9 MiB，进程 CPU 增量为 0.00%（当前计时精度），证明渲染计时器已经停下；WPF/.NET 仍会常驻，完全不使用时请选择“退出”，此时占用归零。
+实际资源占用会随 Windows 版本、显示缩放和当前动画变化。隐藏到托盘或暂停动画后会停止渲染计时器；完全不使用时请选择“退出”，进程结束后不再占用内存和 CPU。
 
 卸载绿色版前先取消“开机启动”并退出程序，然后删除解压目录；需要清理设置时再删除 `%LOCALAPPDATA%\ShenshenPet`。卸载 Codex Pet 只需删除 `%USERPROFILE%\.codex\pets\shenshen`（或对应 `CODEX_HOME` 路径）。
 
@@ -161,7 +161,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-release.ps1
 | --- | --- |
 | `src/ShenshenPet.Core/` | 共享 manifest、动画状态机、Codex 安装逻辑 |
 | `src/ShenshenPet.Windows/` | WPF 透明桌宠窗口与交互 |
-| `src/ShenshenPet.Bridge/` | 不保存正文的轻量 Codex Hook 状态助手 |
+| `src/ShenshenPet.Bridge/` | 轻量 Codex Hook 状态助手 |
 | `pet/codex/` | ChatGPT/Codex 桌面与 CLI 的完整 v2 Pet |
 | `pet/web/` | ChatGPT Web 的 8×9 上传图 |
 | `assets/spritesheet-v2.png` | 独立版使用的最终 PNG atlas |

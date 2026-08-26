@@ -646,7 +646,7 @@ public partial class MainWindow : Window
             RefreshCodexStateWatcher();
             var backup = result.BackupPath is null ? string.Empty : $"\n原配置备份：{result.BackupPath}";
             MessageBox.Show(
-                $"Codex 状态桥接已写入：\n{result.HooksPath}{backup}\n\n请在 Codex CLI 输入 /hooks，检查并信任这些 Hook。桥接只保存动画状态，不保存聊天内容。",
+                $"Codex 状态桥接已写入：\n{result.HooksPath}{backup}\n\n请在 Codex CLI 输入 /hooks，检查并信任这些 Hook。桥接只同步预定义动画状态。",
                 "Codex 状态桥接已安装",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

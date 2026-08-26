@@ -36,8 +36,8 @@ internal static class Program
             return RunSelfTest();
         }
 
-        // Codex sends the hook payload on stdin. Drain it without parsing or persisting
-        // prompts/transcripts: the bridge only needs the explicit state argument.
+        // Codex sends the hook payload on stdin. Drain and discard it; the bridge
+        // only needs the explicit state argument.
         _ = Console.In.ReadToEnd();
         if (args.Length == 0 || !AllowedStates.Contains(args[0]))
         {
