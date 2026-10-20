@@ -2,6 +2,14 @@
 
 本项目采用语义化版本号。视觉素材始终受非商业许可约束。
 
+## [Unreleased]
+
+### Documentation
+
+- 补充 Dot/Pets 外观展示、支持外观互通账号中的网页同步说明、现有 v2 角色包的使用方式与官方文档链接；
+- 补充 Windows 右键“安装到 Codex”的图形安装步骤与新版悬浮控件说明；
+- 此次为文档更新，沿用 v0.5.0 下载包，应用代码与动画素材未变更。
+
 ## [0.5.0] - 2026-08-26
 
 ### Added
@@ -48,6 +56,7 @@
 - 新增 ChatGPT/Codex 桌面自定义 Pet 包、安装脚本、动画 manifest、CI 与 Release 流水线；
 - 加入严格 atlas、元数据、核心状态机与发布包自检。
 
+[Unreleased]: https://github.com/schrieeeffer/shenshen-codex-pet/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/schrieeeffer/shenshen-codex-pet/compare/v0.2.0...v0.5.0
 [0.3.0]: https://github.com/schrieeeffer/shenshen-codex-pet/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/schrieeeffer/shenshen-codex-pet/releases/tag/v0.2.0
